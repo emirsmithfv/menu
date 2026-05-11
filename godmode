@@ -1,0 +1,101 @@
+// =========================
+// HP MODIFIER
+// =========================
+const hpDivider = document.createElement("div");
+hpDivider.style.borderTop = "1px solid #333";
+hpDivider.style.margin = "10px 0";
+menu.appendChild(hpDivider);
+
+const hpLabel = document.createElement("div");
+hpLabel.style.display = "flex";
+hpLabel.style.justifyContent = "space-between";
+hpLabel.style.padding = "4px 0";
+hpLabel.style.fontSize = "13px";
+hpLabel.innerHTML = '<span>Player HP</span><span id="__dbg_hpval" style="color:#00ff66">100</span>';
+menu.appendChild(hpLabel);
+
+const hpSlider = document.createElement("input");
+hpSlider.type = "range";
+hpSlider.min = "1";
+hpSlider.max = "200";
+hpSlider.value = "100";
+hpSlider.style.width = "100%";
+hpSlider.style.margin = "4px 0 8px";
+hpSlider.style.accentColor = "#00ff66";
+menu.appendChild(hpSlider);
+
+const godRow = document.createElement("div");
+godRow.style.display = "flex";
+godRow.style.gap = "6px";
+menu.appendChild(godRow);
+
+// Lock HP toggle (god mode)
+let godMode = false;
+const godBtn = document.createElement("div");
+godBtn.innerText = "🛡 GOD MODE: OFF";
+godBtn.style.flex = "1";
+godBtn.style.textAlign = "center";
+godBtn.style.padding = "7px";
+godBtn.style.background = "rgba(255,80,80,0.1)";
+godBtn.style.border = "1px solid rgba(255,80,80,0.4)";
+godBtn.style.borderRadius = "6px";
+godBtn.style.cursor = "pointer";
+godBtn.style.color = "#ff5050";
+godBtn.style.fontWeight = "bold";
+godBtn.style.fontSize = "12px";
+godBtn.onmouseenter = () => godBtn.style.background = `rgba(${godMode?'0,255,100':'255,80,80'},0.25)`;
+godBtn.onmouseleave = () => godBtn.style.background = `rgba(${godMode?'0,255,100':'255,80,80'},0.1)`;
+godBtn.onclick = () => {
+  godMode = !godMode;
+  godBtn.innerText = godMode ? "🛡 GOD MODE: ON" : "🛡 GOD MODE: OFF";
+  godBtn.style.color = godMode ? "#00ff66" : "#ff5050";
+  godBtn.style.border = `1px solid rgba(${godMode?'0,255,100':'255,80,80'},0.4)`;
+  godBtn.style.background = `rgba(${godMode?'0,255,100':'255,80,80'},0.1)`;
+};
+godRow.appendChild(godBtn);
+
+// Set HP button
+const setHpBtn = document.createElement("div");
+setHpBtn.innerText = "SET";
+setHpBtn.style.padding = "7px 12px";
+setHpBtn.style.background = "rgba(0,180,255,0.1)";
+setHpBtn.style.border = "1px solid rgba(0,180,255,0.4)";
+setHpBtn.style.borderRadius = "6px";
+setHpBtn.style.cursor = "pointer";
+setHpBtn.style.color = "#00b4ff";
+setHpBtn.style.fontWeight = "bold";
+setHpBtn.style.fontSize = "12px";
+setHpBtn.onmouseenter = () => setHpBtn.style.background = "rgba(0,180,255,0.25)";
+setHpBtn.onmouseleave = () => setHpBtn.style.background = "rgba(0,180,255,0.1)";
+setHpBtn.onclick = () => {
+  if (typeof player !== "undefined" && player) {
+    player.hp = parseInt(hpSlider.value);
+    player.sh = 0;
+    if (typeof updateHP === "function") updateHP();
+  }
+};
+godRow.appendChild(setHpBtn);
+
+// Update label as slider moves
+hpSlider.oninput = () => {
+  document.getElementById("__dbg_hpval").innerText = hpSlider.value;
+};
+
+// God mode loop — runs alongside the existing draw loop
+const _godInterval = setInterval(() => {
+  if (typeof player === "undefined" || !player || !player.alive) return;
+  document.getElementById("__dbg_hpval").innerText = Math.ceil(player.hp);
+  hpSlider.value = Math.ceil(player.hp);
+  if (godMode) {
+    player.hp = 200;
+    player.sh = 50;
+    if (typeof updateHP === "function") updateHP();
+  }
+}, 100);
+
+// Make sure the interval clears on cleanup
+const _origCleanup = window.__debugMenuCleanup;
+window.__debugMenuCleanup = () => {
+  clearInterval(_godInterval);
+  _origCleanup();
+};

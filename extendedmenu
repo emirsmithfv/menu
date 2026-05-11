@@ -1,0 +1,245 @@
+(() => {
+  if (window.__debugMenuCleanup) {
+    window.__debugMenuCleanup();
+  }
+
+  const settings = {
+    esp: true,
+    tracers: false,
+    names: true
+  };
+
+  // =========================
+  // CANVAS
+  // =========================
+  const overlay = document.createElement("canvas");
+  overlay.style.position = "fixed";
+  overlay.style.left = "0";
+  overlay.style.top = "0";
+  overlay.style.width = "100vw";
+  overlay.style.height = "100vh";
+  overlay.style.pointerEvents = "none";
+  overlay.style.zIndex = "999999";
+  document.body.appendChild(overlay);
+
+  const ctx = overlay.getContext("2d");
+
+  function resize() {
+    overlay.width = innerWidth;
+    overlay.height = innerHeight;
+  }
+  resize();
+  addEventListener("resize", resize);
+
+  // =========================
+  // MENU
+  // =========================
+  const menu = document.createElement("div");
+  menu.style.position = "fixed";
+  menu.style.top = "100px";
+  menu.style.right = "40px";
+  menu.style.width = "280px";
+  menu.style.background = "rgba(15,15,15,0.95)";
+  menu.style.border = "2px solid red";
+  menu.style.borderRadius = "12px";
+  menu.style.padding = "14px";
+  menu.style.fontFamily = "Arial";
+  menu.style.color = "white";
+  menu.style.zIndex = "1000000";
+  menu.style.userSelect = "none";
+  menu.style.cursor = "move";
+  document.body.appendChild(menu);
+
+  let menuOpen = true;
+
+  menu.innerHTML = `
+    <div style="text-align:center;font-size:22px;font-weight:bold;color:red;margin-bottom:12px;">
+      DEBUG MENU
+    </div>
+    <div style="text-align:center;color:#aaa;margin-bottom:14px;font-size:13px;">
+      Press 0 to toggle
+    </div>
+  `;
+
+  function makeToggle(name, key) {
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.justifyContent = "space-between";
+    row.style.padding = "6px 0";
+    row.style.cursor = "pointer";
+
+    const left = document.createElement("span");
+    left.innerText = name;
+
+    const right = document.createElement("span");
+
+    function refresh() {
+      right.innerText = settings[key] ? "ON" : "OFF";
+      right.style.color = settings[key] ? "#00ff66" : "#ff4444";
+    }
+    refresh();
+
+    row.onclick = () => { settings[key] = !settings[key]; refresh(); };
+    row.appendChild(left);
+    row.appendChild(right);
+    menu.appendChild(row);
+  }
+
+  makeToggle("ESP Boxes", "esp");
+  makeToggle("Tracers", "tracers");
+  makeToggle("Name Tags", "names");
+
+  // =========================
+  // DIVIDER
+  // =========================
+  const divider = document.createElement("div");
+  divider.style.borderTop = "1px solid #333";
+  divider.style.margin = "10px 0";
+  menu.appendChild(divider);
+
+  // =========================
+  // INSTA WIN BUTTON
+  // =========================
+  function makeButton(label, color, onClick) {
+    const btn = document.createElement("div");
+    btn.innerText = label;
+    btn.style.textAlign = "center";
+    btn.style.padding = "8px";
+    btn.style.margin = "4px 0";
+    btn.style.background = `rgba(${color},0.15)`;
+    btn.style.border = `1px solid rgba(${color},0.6)`;
+    btn.style.borderRadius = "6px";
+    btn.style.cursor = "pointer";
+    btn.style.color = `rgb(${color})`;
+    btn.style.fontWeight = "bold";
+    btn.style.fontSize = "13px";
+    btn.style.transition = "background 0.15s";
+    btn.onmouseenter = () => btn.style.background = `rgba(${color},0.3)`;
+    btn.onmouseleave = () => btn.style.background = `rgba(${color},0.15)`;
+    btn.onclick = onClick;
+    menu.appendChild(btn);
+    return btn;
+  }
+
+  makeButton("⚡ INSTA WIN", "255,215,0", () => {
+    if (typeof remotePlayers === "undefined" || typeof endRound === "undefined") {
+      console.warn("[DEBUG] Game not running.");
+      return;
+    }
+    if (!gameRunning) {
+      console.warn("[DEBUG] No active round.");
+      return;
+    }
+    for (const p of remotePlayers) {
+      if (p.alive) {
+        p.alive = false;
+        p._killed = true;
+        p.hp = 0;
+      }
+    }
+    endRound(true);
+  });
+
+  // Bonus: award EB directly without a win
+  makeButton("💰 +100 EB", "0,200,100", () => {
+    if (typeof ebAward === "function") ebAward(100);
+    else console.warn("[DEBUG] ebAward not available.");
+  });
+
+  // =========================
+  // DRAG MENU
+  // =========================
+  let dragging = false, offsetX = 0, offsetY = 0;
+  menu.addEventListener("mousedown", e => {
+    dragging = true;
+    offsetX = e.clientX - menu.offsetLeft;
+    offsetY = e.clientY - menu.offsetTop;
+  });
+  addEventListener("mouseup", () => { dragging = false; });
+  addEventListener("mousemove", e => {
+    if (!dragging) return;
+    menu.style.left = (e.clientX - offsetX) + "px";
+    menu.style.top = (e.clientY - offsetY) + "px";
+    menu.style.right = "auto";
+  });
+
+  // =========================
+  // TOGGLE MENU
+  // =========================
+  addEventListener("keydown", e => {
+    if (e.key === "0") {
+      menuOpen = !menuOpen;
+      menu.style.display = menuOpen ? "block" : "none";
+    }
+  });
+
+  // =========================
+  // WORLD TO SCREEN
+  // =========================
+  function worldToScreen(x, y) {
+    return {
+      x: (x - cam.x) * ZOOM,
+      y: (y - cam.y) * ZOOM
+    };
+  }
+
+  // =========================
+  // DRAW
+  // =========================
+  function drawPlayer(ent) {
+    if (!ent || !ent.alive) return;
+    const pos = worldToScreen(ent.x, ent.y);
+    const w = 40, h = 65;
+    const x = pos.x - w / 2, y = pos.y - h / 2;
+
+    if (settings.esp) {
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = "rgba(255,0,0,0.12)";
+      ctx.fillRect(x, y, w, h);
+    }
+
+    if (settings.tracers) {
+      ctx.beginPath();
+      ctx.moveTo(innerWidth / 2, innerHeight / 2);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = "rgba(255,0,0,0.7)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    if (settings.names) {
+      ctx.font = "bold 14px Arial";
+      ctx.textAlign = "center";
+      const txt = ent.name || "Player";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "black";
+      ctx.strokeText(txt, pos.x, y - 8);
+      ctx.fillStyle = "white";
+      ctx.fillText(txt, pos.x, y - 8);
+    }
+  }
+
+  // =========================
+  // LOOP
+  // =========================
+  function loop() {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    if (typeof remotePlayers !== "undefined") {
+      for (const p of remotePlayers) drawPlayer(p);
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  // =========================
+  // CLEANUP
+  // =========================
+  window.__debugMenuCleanup = () => {
+    overlay.remove();
+    menu.remove();
+  };
+
+  console.log("Debug overlay loaded");
+})();

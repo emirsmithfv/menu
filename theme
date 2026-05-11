@@ -1,0 +1,39 @@
+(() => {
+  const style = document.createElement("style");
+
+  style.textContent = `
+    * {
+      background: #000000 !important;
+      color: #7CFF7C !important;
+      border-color: #7CFF7C !important;
+      box-shadow: none !important;
+      text-shadow: 0 0 4px #7CFF7C !important;
+      caret-color: #7CFF7C !important;
+    }
+
+    html, body {
+      background: #000000 !important;
+    }
+
+    img, video, canvas, svg {
+      filter: contrast(1.1) brightness(0.8);
+    }
+
+    a {
+      color: #A0FFA0 !important;
+    }
+
+    input, textarea, button, select {
+      background: #001100 !important;
+      color: #7CFF7C !important;
+      border: 1px solid #7CFF7C !important;
+    }
+
+    ::selection {
+      background: #7CFF7C !important;
+      color: #000000 !important;
+    }
+  `;
+
+  document.head.appendChild(style);
+})();
